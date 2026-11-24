@@ -1,11 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import Response
 
 from src.constants.domain import RunStatus
 from src.controllers.access import analyst, current_user, owner
 from src.schemas.inputs import DraftText, StartRun
 from src.services import runs
-from src.services.exports import csv_result, snapshot_path
+from src.services.exports import csv_result, ensure_artifact
 
 router = APIRouter(prefix='/runs')
 
@@ -52,8 +52,7 @@ def export_csv(run_id: int, user=Depends(current_user)):
 
 @router.get('/{run_id}/snapshot.json')
 def export_snapshot(run_id: int, user=Depends(current_user)):
-    run = completed(run_id, user)
-    path = snapshot_path(run_id, run['claim_token'])
-    if not path.is_file():
-        raise HTTPException(503, '快照文件暂不可用')
-    return FileResponse(path, media_type='application/json', filename=f'umbrella-{run_id}-snapshot.json')
+    completed(run_id, user)
+    data = ensure_artifact(run_id)
+    return Response(data, media_type='application/json',
+                    headers={'Content-Disposition': f'attachment; filename="umbrella-{run_id}-snapshot.json"'})

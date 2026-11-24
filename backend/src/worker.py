@@ -39,7 +39,12 @@ def process(job):
         if checksum(text) != job['snapshot_sha']:
             raise AnalysisError('输入快照校验失败，请重新提交运行。')
         calculated = canonical(analyze(snapshot))
-        write_snapshot(run_id, token, text)
+        try:
+            write_snapshot(run_id, text, job['snapshot_sha'])
+        except OSError:
+            # The original can still be rebuilt on demand from the sealed
+            # snapshot, so a failed file write must not fail the run.
+            logger.exception('Snapshot file write failed for run %s', run_id)
         result = calculated
     except AnalysisError as exc:
         failure = str(exc)

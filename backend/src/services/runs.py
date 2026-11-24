@@ -6,6 +6,7 @@ from src.constants.domain import DraftStatus, METHOD, Role, RunStatus
 from src.models.db import transaction
 from src.models.queries import DRAFT_COLUMNS, PLAN_COLUMNS, RUN_COLUMNS, TICKET_COLUMNS
 from src.services.audit import record
+from src.services.exports import inspect_artifact
 from src.utils.queue import wake_worker
 from src.utils.serialization import canonical, checksum
 
@@ -55,6 +56,9 @@ def get_run(run_id, role):
     run['plan'] = snapshot['plan']
     run['sample_count'] = len(snapshot['tickets'])
     run['draft'] = draft
+    if run['status'] == RunStatus.COMPLETED:
+        run['artifact'] = inspect_artifact(run_id, run['claim_token'], run['snapshot_sha'],
+                                           canonical(snapshot))
     return run
 
 

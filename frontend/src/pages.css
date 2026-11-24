@@ -50,6 +50,13 @@
 .result-meta .text-btn:last-child { margin-left: auto; }
 .result-picker { display: flex; align-items: center; font-size: .8rem; white-space: nowrap; }
 .result-picker select { width: auto; padding: 4px 7px; }
+.artifact-state { font-size: .76rem; font-weight: 650; padding: 2px 7px; white-space: nowrap; background: var(--raw); color: var(--muted); }
+.artifact-state.ready { color: var(--olive); background: var(--olive-soft); }
+.artifact-state.pending { color: var(--rust-dark); background: var(--rust-soft); }
+.artifact-state.bad { color: var(--ivory); background: var(--rust); }
+.artifact-why { color: var(--rust-dark); font-size: .76rem; }
+.text-btn.disabled { color: var(--muted); cursor: default; }
+.text-btn.disabled:hover { text-decoration: none; }
 .result-strip { display: grid; grid-template-columns: 1.11fr 1fr 1fr; border: 1px solid var(--rule); background: var(--sheet); }
 .result-metric { --bar: var(--rust); padding: 11px 15px 10px; border-right: 1px solid var(--rule); }
 .result-metric:last-child { border-right: 0; }
