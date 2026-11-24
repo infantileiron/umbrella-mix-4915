@@ -1,0 +1,93 @@
+name: umbrella-mix
+
+x-python: &python
+  image: ${COMPOSE_PROJECT_NAME:-umbrella-mix}-python:local
+  build: ./backend
+  environment:
+    MYSQL_DATABASE: ${MYSQL_DATABASE:-umbrella}
+    MYSQL_USER: ${MYSQL_USER:-umbrella}
+    MYSQL_PASSWORD: ${MYSQL_PASSWORD:-umbrella_dev_db}
+    JWT_SECRET: ${JWT_SECRET:-umbrella-mix-local-demo-key-change-before-hosting}
+    SEED_DEMO: ${SEED_DEMO:-true}
+  depends_on:
+    db:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+  volumes:
+    - exports:/app/artifacts
+
+services:
+  frontend:
+    build: ./frontend
+    container_name: ${COMPOSE_PROJECT_NAME:-umbrella-mix}-frontend
+    ports:
+      - '127.0.0.1:${FRONTEND_PORT:-18279}:80'
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, wget, -qO-, http://127.0.0.1/api/health]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+  backend:
+    <<: *python
+    container_name: ${COMPOSE_PROJECT_NAME:-umbrella-mix}-backend
+    command: [sh, /app/start.sh]
+    ports:
+      - '127.0.0.1:${BACKEND_PORT:-19279}:8000'
+    healthcheck:
+      test: [CMD, python, -c, "from urllib.request import urlopen; urlopen('http://127.0.0.1:8000/health', timeout=2)"]
+      interval: 3s
+      timeout: 3s
+      retries: 25
+  worker:
+    <<: *python
+    container_name: ${COMPOSE_PROJECT_NAME:-umbrella-mix}-worker
+    command: [python, -m, src.worker]
+    healthcheck:
+      test: [CMD, python, -c, "from pathlib import Path; from time import time; assert time() - Path('/tmp/umbrella-worker').stat().st_mtime < 20"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+  db:
+    image: mysql:8.0
+    container_name: ${COMPOSE_PROJECT_NAME:-umbrella-mix}-db
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-umbrella}
+      MYSQL_USER: ${MYSQL_USER:-umbrella}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-umbrella_dev_db}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-umbrella_dev_root}
+    ports:
+      - '127.0.0.1:${DB_PORT:-17779}:3306'
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./backend/migrations/001_initial.sql:/docker-entrypoint-initdb.d/001_initial.sql:ro
+    healthcheck:
+      test: [CMD-SHELL, 'MYSQL_PWD="$$MYSQL_PASSWORD" mysql -h 127.0.0.1 -u "$$MYSQL_USER" "$$MYSQL_DATABASE" -NBe "SELECT COUNT(*) FROM comparison_plans"']
+      interval: 3s
+      timeout: 3s
+      retries: 30
+  redis:
+    image: redis:7-alpine
+    container_name: ${COMPOSE_PROJECT_NAME:-umbrella-mix}-redis
+    command: [redis-server, --appendonly, 'yes']
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  mysql_data:
+  redis_data:
+  exports:
+
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: ${NETWORK_SUBNET:-10.221.210.0/24}
